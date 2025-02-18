@@ -2,13 +2,17 @@ import asyncio
 import curses
 import random
 
+from modules.sleep import async_sleep
 
-async def blink(canvas, row, column):
+
+async def blink(canvas, row, column, offset_tics, symbol):
     """Blink animation of specified star."""
-    symbol = random.choice('+*.:')
-    styles_time = ((curses.A_DIM, 2000), (curses.A_NORMAL, 500), (curses.A_BOLD, 800), (curses.A_NORMAL, 500))
+    styles_time = ((curses.A_DIM, 20), (curses.A_NORMAL, 5), (curses.A_BOLD, 8), (curses.A_NORMAL, 5))
+
+    await async_sleep(offset_tics)
+
     while True:
         for style, max_seconds in styles_time:
             canvas.addstr(row, column, symbol, style)
-            for _ in range(random.randint(10, max_seconds)):
-                await asyncio.sleep(0)
+            await async_sleep(max_seconds)
+
