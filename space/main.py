@@ -1,5 +1,5 @@
 import curses
-from random import randint
+from random import randint, choice
 
 from modules.animate_spaceship import animate_spaceship
 from modules.blink import blink
@@ -18,15 +18,27 @@ def init_file_contents():
 def draw(canvas):
     canvas.border()
     canvas.nodelay(True)
+    # работает не на всех терминалах
     # curses.curs_set(False)
     max_rows, max_cols = canvas.getmaxyx()
     file_contents = init_file_contents()
     coroutines = [
         fire(canvas=canvas, start_row=max_rows // 2, start_column=max_cols // 2),
-        animate_spaceship(canvas=canvas, start_row=(max_rows // 2) - 3, start_column=max_cols // 2, file_contents=file_contents),
+        animate_spaceship(
+            canvas=canvas,
+            start_row=(max_rows // 2) - 3,
+            start_column=max_cols // 2,
+            file_contents=file_contents,
+        ),
     ]
     for col in range(1, max_cols-2):
-        coroutines.append(blink(canvas=canvas, row=randint(1, max_rows-2), column=col))
+        coroutines.append(blink(
+            canvas=canvas,
+            row=randint(1, max_rows-2),
+            column=col,
+            offset_tics=randint(1, 20),
+            symbol=choice('+*.:'),
+        ))
 
     while True:
         for coroutine in coroutines.copy():
@@ -37,7 +49,7 @@ def draw(canvas):
             except Exception as e:
                 coroutines.remove(coroutine)
                 print(e)
-            canvas.refresh()
+        canvas.refresh()
         if len(coroutines) == 0:
             break
 
