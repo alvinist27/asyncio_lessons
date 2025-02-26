@@ -6,7 +6,7 @@ from consts import FileContentTypes, FILES_CONTENT_FRAMES, coroutines
 from modules.animate_spaceship import animate_spaceship
 from modules.blink import blink
 from modules.fire import fire
-from modules.space_garbage import fill_orbit_with_garbage
+from modules.space_garbage import fill_orbit_with_garbage, increment_year, show_year
 
 
 def init_file_contents():
@@ -26,6 +26,9 @@ def draw(canvas):
     max_rows, max_cols = canvas.getmaxyx()
     file_contents = init_file_contents()
 
+    info_window = canvas.derwin(1, 50, max_rows-10, max_cols//2)
+    coroutines.append(show_year(info_window))
+    coroutines.append(increment_year())
     coroutines.append(fire(canvas=canvas, start_row=max_rows // 2, start_column=max_cols // 2))
     coroutines.append(
         animate_spaceship(
