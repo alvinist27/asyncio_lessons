@@ -27,6 +27,27 @@ async def show_year(canvas):
         draw_frame(canvas, 0, 0, message, negative=True)
 
 
+year = 1957
+
+
+async def increment_year():
+    global year
+    while True:
+        year += 1
+        await async_sleep(15)
+
+
+async def show_year(canvas):
+    global year
+    while True:
+        print(year)
+        message = f'Year: {year} {PHRASES.get(year, "")}'
+        draw_frame(canvas, 0, 0, message)
+        await asyncio.sleep(0)
+        draw_frame(canvas, 0, 0, message, negative=True)
+
+
+
 async def fill_orbit_with_garbage(canvas, garbage_frames):
     _, columns_number = canvas.getmaxyx()
     while True:
