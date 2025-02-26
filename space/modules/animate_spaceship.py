@@ -1,9 +1,11 @@
 import asyncio
 from itertools import cycle
 
+from consts import obstacles
 from modules.curses_tools import draw_frame, get_frame_size, read_controls
 from modules.fire import fire
 from modules.physycs import update_speed
+from modules.show_game_over import show_game_over
 
 ROW_INDEX = 0
 COL_INDEX = 1
@@ -13,12 +15,15 @@ async def animate_spaceship(canvas, start_row, start_column, rocket_file_frames,
     max_rows, max_cols = canvas.getmaxyx()
     frame_to_size = {frame: get_frame_size(frame) for frame in rocket_file_frames}
 
+    rocket_rows, rocket_columns = frame_to_size[rocket_file_frames[0]]
+
     previous_row, previous_column = start_row, start_column
     previous_frame = rocket_file_frames[0]
 
     row_speed = column_speed = 0
     for step_text in cycle(rocket_file_frames):
         draw_frame(canvas, previous_row, previous_column, previous_frame, negative=True)
+
         draw_frame(canvas, start_row, start_column, step_text)
 
         previous_row, previous_column = start_row, start_column
@@ -28,9 +33,10 @@ async def animate_spaceship(canvas, start_row, start_column, rocket_file_frames,
             rows_direction, columns_direction, space_pressed = read_controls(canvas=canvas)
             if space_pressed:
                 await fire(canvas=canvas, start_row=start_row, start_column=start_column)
-
-
-
+            for obstacle in obstacles:
+                if obstacle.has_collision(start_row, start_column, rocket_rows, rocket_columns):
+                    draw_frame(canvas, start_row, start_column, step_text, negative=True)
+                    await show_game_over(canvas=canvas, row=max_rows // 2, column=max_cols // 2, frame=game_over_frame)
             row_speed, column_speed = update_speed(row_speed, column_speed, rows_direction, columns_direction)
             start_row, start_column = start_row + row_speed, start_column + column_speed
             start_row = max(1, min(start_row, max_rows-frame_to_size[step_text][ROW_INDEX]-1))

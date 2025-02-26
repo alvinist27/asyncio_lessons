@@ -28,3 +28,4 @@ FILES_CONTENT_FRAMES = MappingProxyType({
 coroutines = []
 obstacles = []
 obstacles_in_last_collisions = []
+year = 1961

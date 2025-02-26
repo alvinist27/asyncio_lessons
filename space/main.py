@@ -33,7 +33,7 @@ def draw(canvas):
             start_row=(max_rows // 2) - 3,
             start_column=max_cols // 2,
             rocket_file_frames=file_contents[FileContentTypes.ROCKET],
-            game_over_frame=file_contents[FileContentTypes.ROCKET][0],
+            game_over_frame=file_contents[FileContentTypes.GAME_OVER][0],
         ),
     )
     coroutines.append(fill_orbit_with_garbage(canvas=canvas, garbage_frames=file_contents[FileContentTypes.GARBAGE]))
