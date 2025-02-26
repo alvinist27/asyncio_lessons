@@ -1,8 +1,8 @@
 import asyncio
 import curses
 
-from globals import obstacles, obstacles_in_last_collisions
-from modules.explosion import explode
+import consts
+import globals
 
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
@@ -23,16 +23,14 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
     symbol = '-' if columns_speed else '|'
 
     rows, columns = canvas.getmaxyx()
-    max_row, max_column = rows - 1, columns - 1
+    max_row, max_column = rows - consts.CANVAS_BORDER_SIZE, columns - consts.CANVAS_BORDER_SIZE
 
     curses.beep()
 
     while 0 < row < max_row and 0 < column < max_column:
-        for obstacle in obstacles:
+        for obstacle in globals.obstacles:
             if obstacle.has_collision(row, column):
-                obstacles_in_last_collisions.append(obstacle)
-                await explode(canvas=canvas, center_row=obstacle.row, center_column=obstacle.column)
-                await asyncio.sleep(0)
+                globals.obstacles_in_last_collisions.append(obstacle)
                 return
         canvas.addstr(round(row), round(column), symbol)
         await asyncio.sleep(0)

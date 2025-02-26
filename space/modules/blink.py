@@ -10,7 +10,7 @@ async def blink(canvas, row, column, offset_tics, symbol):
     await async_sleep(offset_tics)
 
     while True:
-        for style, max_seconds in styles_time:
+        for style, delay_seconds in styles_time:
             canvas.addstr(row, column, symbol, style)
-            await async_sleep(max_seconds)
+            await async_sleep(delay_seconds)
 
