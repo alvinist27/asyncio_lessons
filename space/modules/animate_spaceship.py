@@ -1,7 +1,7 @@
 import asyncio
 from itertools import cycle
 
-from consts import obstacles
+from globals import obstacles
 from modules.curses_tools import draw_frame, get_frame_size, read_controls
 from modules.fire import fire
 from modules.physycs import update_speed
@@ -36,7 +36,7 @@ async def animate_spaceship(canvas, start_row, start_column, rocket_file_frames,
             for obstacle in obstacles:
                 if obstacle.has_collision(start_row, start_column, rocket_rows, rocket_columns):
                     draw_frame(canvas, start_row, start_column, step_text, negative=True)
-                    await show_game_over(canvas=canvas, row=max_rows // 2, column=max_cols // 2, frame=game_over_frame)
+                    await show_game_over(canvas=canvas, center_row=max_rows//2, center_column=max_cols//2, game_over_frame=game_over_frame)
             row_speed, column_speed = update_speed(row_speed, column_speed, rows_direction, columns_direction)
             start_row, start_column = start_row + row_speed, start_column + column_speed
             start_row = max(1, min(start_row, max_rows-frame_to_size[step_text][ROW_INDEX]-1))

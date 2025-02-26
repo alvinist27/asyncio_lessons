@@ -1,6 +1,4 @@
-import asyncio
 import curses
-import random
 
 from modules.sleep import async_sleep
 

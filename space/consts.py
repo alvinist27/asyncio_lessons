@@ -23,9 +23,3 @@ FILES_CONTENT_FRAMES = MappingProxyType({
     ],
     FileContentTypes.GAME_OVER: ['modules/txt_frames/game_over.txt'],
 })
-
-
-coroutines = []
-obstacles = []
-obstacles_in_last_collisions = []
-year = 1961

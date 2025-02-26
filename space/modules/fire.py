@@ -1,7 +1,7 @@
 import asyncio
 import curses
 
-from consts import obstacles, obstacles_in_last_collisions
+from globals import obstacles, obstacles_in_last_collisions
 from modules.explosion import explode
 
 

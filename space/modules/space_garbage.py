@@ -1,22 +1,44 @@
 import asyncio
 from random import choice, randint
 
-from consts import coroutines, obstacles, obstacles_in_last_collisions
+from globals import coroutines, obstacles, obstacles_in_last_collisions
 from modules.curses_tools import draw_frame, get_frame_size
+from modules.game_scenario import get_garbage_delay_tics, PHRASES
 from modules.obstacles import Obstacle
 from modules.sleep import async_sleep
+
+year = 1957
+
+
+async def increment_year():
+    global year
+    while True:
+        year += 1
+        await async_sleep(15)
+
+
+async def show_year(canvas):
+    global year
+    while True:
+        print(year)
+        message = f'Year: {year} {PHRASES.get(year, "")}'
+        draw_frame(canvas, 0, 0, message)
+        await asyncio.sleep(0)
+        draw_frame(canvas, 0, 0, message, negative=True)
 
 
 async def fill_orbit_with_garbage(canvas, garbage_frames):
     _, columns_number = canvas.getmaxyx()
     while True:
-        coroutines.append(fly_garbage(
-            canvas=canvas,
-            column=randint(1, columns_number),
-            garbage_frame=choice(garbage_frames),
-            speed=0.01
-        ))
-        await async_sleep(1000)
+        delay = get_garbage_delay_tics(year)
+        if delay:
+            coroutines.append(fly_garbage(
+                canvas=canvas,
+                column=randint(1, columns_number),
+                garbage_frame=choice(garbage_frames),
+                speed=0.01
+            ))
+        await async_sleep(delay or 1)
 
 
 async def fly_garbage(canvas, column, garbage_frame, speed=0.01):
