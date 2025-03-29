@@ -12,7 +12,7 @@ logger = logging.getLogger()
 
 
 async def archive(request):
-    archive_name = request.match_info.get('archive_hash', 'archive')
+    archive_name = request.match_info['archive_hash']
     archive_path = os.path.join(request.app['media_dir'], archive_name)
     if not os.path.exists(archive_path):
         raise web.HTTPNotFound(text='Archive not found')
@@ -40,8 +40,10 @@ async def archive(request):
     else:
         logger.info('Download was completed')
     finally:
+        if process.returncode is None:
+            logger.info('Killing ZIP process')
+            process.kill()
         await process.communicate()
-        response.force_close()
     return response
 
 
