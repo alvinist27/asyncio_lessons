@@ -170,3 +170,6 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 .idea
+
+chat/history.txt
+chat/user_hash.txt
