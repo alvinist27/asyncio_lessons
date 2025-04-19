@@ -30,8 +30,13 @@ python chat_listen.py
 
 python write_minechat.py
 Аргументы командной строки
-- --host - адрес хоста чата
-- --port - номер порта для отправки
+- message - сообщение для отправки
+- -s, --host - адрес хоста чата
+- -p, --port - номер порта для отправки
+- -t, --token - токен авторизации
+- -u, --username - имя пользователя
+
+usage: chat_write.py [-h] [-s HOST] [-p PORT] [-t TOKEN] [-u USERNAME] message
 
 ### Поддерживаются переменные окружения:
 - Создайте файл .env в корне проекта. Пример представлен в .env.example:
@@ -42,4 +47,7 @@ HISTORY_FILE_NAME="history.txt"
 
 WRITE_HOST="minechat.dvmn.org"
 WRITE_PORT=5050
+WRITE_MESSAGE="message"
+WRITE_TOKEN="619497fc-1d3e-11f0-abed-0242ac110002"
+WRITE_USERNAME="username"
 ```

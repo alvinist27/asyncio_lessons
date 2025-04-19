@@ -15,16 +15,26 @@ logging.basicConfig(level=logging.INFO)
 
 
 class Chat:
-    @staticmethod
-    def configure_application() -> ConfigData:
+    @classmethod
+    def configure_application(cls) -> ConfigData:
         parser = argparse.ArgumentParser()
-        parser.add_argument('--host', help='set connection host')
-        parser.add_argument('--port', help='set connection port')
+        parser.add_argument('message', help='set message for sending')
+        parser.add_argument('-s', '--host', help='set connection host')
+        parser.add_argument('-p', '--port', help='set connection port')
+        parser.add_argument('-t', '--token', help='set user auth token')
+        parser.add_argument('-u', '--username', help='set username')
         parser_args = parser.parse_args()
         return ConfigData(
             host=parser_args.host or os.getenv('WRITE_HOST', ''),
             port=parser_args.port or os.getenv('WRITE_PORT', ''),
+            message=cls.sanitize(parser_args.message or os.getenv('WRITE_MESSAGE', '')),
+            token=parser_args.token or os.getenv('WRITE_TOKEN', ''),
+            username=cls.sanitize(parser_args.username or os.getenv('WRITE_USERNAME', '')),
         )
+
+    @staticmethod
+    def sanitize(message: str) -> str:
+        return message.replace('\n', ' ')
 
     @staticmethod
     async def register(config_data: ConfigData) -> None:
@@ -42,7 +52,7 @@ class Chat:
         data = await reader.readline()
         logging.info(f'Received: {data.decode()!r}')
 
-        message = 'alvin'
+        message = config_data.username
         writer.write(f'{message}\n'.encode())
         await writer.drain()
         logging.info(f'Sent: {message}')
@@ -91,12 +101,12 @@ class Chat:
         await writer.wait_closed()
 
     @classmethod
-    async def send_message(cls, config_data: ConfigData, message: str) -> None:
+    async def send_message(cls, config_data: ConfigData) -> None:
         _, writer = await cls._login(config_data)
         if not writer:
             return
-        writer.write(f'{message}\n'.encode())
-        logging.info(f'Sent: {message}')
+        writer.write(f'{config_data.message}\n'.encode())
+        logging.info(f'Sent: {config_data.message}')
         writer.close()
         await writer.wait_closed()
 
@@ -104,7 +114,7 @@ class Chat:
     async def start(cls) -> None:
         config_data = cls.configure_application()
         await cls.register(config_data=config_data)
-        await cls.send_message(config_data=config_data, message='message')
+        await cls.send_message(config_data=config_data)
 
 
 if __name__ == '__main__':
