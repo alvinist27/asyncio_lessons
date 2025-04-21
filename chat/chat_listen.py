@@ -8,25 +8,11 @@ import aiofiles
 from dotenv import load_dotenv
 
 from chat.config_data import ConfigData
+from chat.connections import open_connection
 
 load_dotenv()
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
-
-
-async def listen_chat(config_data):
-    reader, writer = await asyncio.open_connection(config_data.host, config_data.port)
-    async with aiofiles.open(config_data.history_file_path, mode='a') as history_file:
-        while data := await reader.read(1000):
-            current_datetime = datetime.now().strftime("%d.%m.%Y %H:%M")
-            try:
-                await history_file.write(data.decode())
-            except UnicodeDecodeError:
-                writer.close()
-                await writer.wait_closed()
-                logging.info(f'{current_datetime}: UnicodeDecodeError')
-            else:
-                logging.info(f'{current_datetime}: {data.decode()}')
 
 
 def configure_application() -> ConfigData:
@@ -42,5 +28,15 @@ def configure_application() -> ConfigData:
     )
 
 
+async def main():
+    config_data = configure_application()
+    async with open_connection(host=config_data.host, port=config_data.port) as (reader, writer):
+        async with aiofiles.open(config_data.history_file_path, mode='a') as history_file:
+            while data := await reader.readline():
+                current_datetime = datetime.now().strftime("%d.%m.%Y %H:%M")
+                await history_file.write(data.decode())
+                logger.info(f'{current_datetime}: {data.decode()}')
+
+
 if __name__ == '__main__':
-    asyncio.run(listen_chat(configure_application()))
+    asyncio.run(main())
