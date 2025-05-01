@@ -171,5 +171,5 @@ cython_debug/
 .pypirc
 .idea
 
-chat/history.txt
-chat/user_hash.txt
+history.txt
+user_hash.txt

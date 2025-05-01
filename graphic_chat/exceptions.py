@@ -1,0 +1,2 @@
+class TkAppClosed(Exception):
+    pass

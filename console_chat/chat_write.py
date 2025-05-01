@@ -8,8 +8,8 @@ from asyncio import StreamReader, StreamWriter
 import aiofiles
 from dotenv import load_dotenv
 
-from chat.config_data import ConfigData
-from chat.connections import open_connection
+from console_chat.config_data import ConfigData
+from console_chat.connections import open_connection
 
 AUTH_ERROR_MESSAGE = 'Authentication error!'
 TOKEN_ERROR_MESSAGE = 'Unknown token. Check it or register again.'

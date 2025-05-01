@@ -7,8 +7,8 @@ from datetime import datetime
 import aiofiles
 from dotenv import load_dotenv
 
-from chat.config_data import ConfigData
-from chat.connections import open_connection
+from console_chat.config_data import ConfigData
+from console_chat.connections import open_connection
 
 load_dotenv()
 logger = logging.getLogger()
