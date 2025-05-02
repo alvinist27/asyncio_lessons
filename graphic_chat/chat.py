@@ -1,33 +1,42 @@
 import argparse
 import asyncio
+import json
 import logging
 import os
+import time
 import tkinter as tk
+from asyncio import StreamReader, StreamWriter
+from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
 
 import aiofiles
 from dotenv import load_dotenv
 
-from graphic_chat import choices, consts
+from graphic_chat import consts, statuses
 from graphic_chat.config_data import ConfigData
 from graphic_chat.connections import open_connection
 from graphic_chat.exceptions import TkAppClosed
 
 load_dotenv()
-logger = logging.getLogger()
+logger = logging.getLogger('base')
+watchdog_logger = logging.getLogger('watchdog')
 logging.basicConfig(level=logging.INFO)
 
 
 def configure_application() -> ConfigData:
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--host', help='set connection host')
-    parser.add_argument('-p', '--port', help='set connection port')
+    parser.add_argument('-ls', '--listen_host', help='set listen connection host')
+    parser.add_argument('-lp', '--listen_port', help='set listen connection port')
     parser.add_argument('-t', '--token', help='set user auth token')
+    parser.add_argument('-ws', '--write_host', help='set write connection host')
+    parser.add_argument('-wp', '--write_port', help='set write connection port')
     parser_args = parser.parse_args()
     return ConfigData(
-        server_host=parser_args.host or os.getenv('SERVER_HOST', ''),
-        server_port=parser_args.port or os.getenv('SERVER_PORT', ''),
+        listen_host=parser_args.listen_host or os.getenv('LISTEN_SERVER_HOST', ''),
+        listen_port=parser_args.listen_port or os.getenv('LISTEN_SERVER_PORT', ''),
         user_token=parser_args.token or os.getenv('USER_TOKEN', ''),
+        write_host=parser_args.write_host or os.getenv('WRITE_SERVER_HOST', ''),
+        write_port=parser_args.write_port or os.getenv('WRITE_SERVER_PORT', ''),
     )
 
 
@@ -52,6 +61,7 @@ def create_status_panel(root_frame):
 def process_new_message(input_field, sending_queue):
     text = input_field.get()
     sending_queue.put_nowait(text)
+    logger.info(f'Пользователь написал: {text}')
     input_field.delete(0, tk.END)
 
 
@@ -73,13 +83,13 @@ async def update_status_panel(status_labels, status_updates_queue):
 
     while True:
         msg = await status_updates_queue.get()
-        if isinstance(msg, choices.ReadConnectionStateChanged):
+        if isinstance(msg, statuses.ReadConnectionStateChanged):
             read_label['text'] = f'Чтение: {msg}'
 
-        if isinstance(msg, choices.SendingConnectionStateChanged):
+        if isinstance(msg, statuses.SendingConnectionStateChanged):
             write_label['text'] = f'Отправка: {msg}'
 
-        if isinstance(msg, choices.NicknameReceived):
+        if isinstance(msg, statuses.NicknameReceived):
             nickname_label['text'] = f'Имя пользователя: {msg.nickname}'
 
 
@@ -98,7 +108,7 @@ async def update_conversation_history(panel, messages_queue):
         panel['state'] = 'disabled'
 
 
-async def draw(messages_queue, messages_to_save_queue, sending_queue, status_updates_queue):
+async def draw(messages_queue, messages_to_save_queue, sending_queue, status_updates_queue, watchdog_queue):
     root = tk.Tk()
 
     root.title('Чат Майнкрафтера')
@@ -128,20 +138,87 @@ async def draw(messages_queue, messages_to_save_queue, sending_queue, status_upd
 
     await preload_chat_history(messages_queue)
     await asyncio.gather(
+        write_messages(config_data.write_host, config_data.write_port, sending_queue, status_updates_queue, watchdog_queue),
         update_tk(root_frame),
         update_status_panel(status_labels, status_updates_queue),
         update_conversation_history(conversation_panel, messages_queue),
-        read_msgs(config_data.server_host, config_data.server_port, messages_queue, messages_to_save_queue),
-        save_msgs(messages_to_save_queue)
+        read_msgs(config_data.listen_host, config_data.listen_port, messages_queue, messages_to_save_queue, status_updates_queue, watchdog_queue),
+        save_msgs(messages_to_save_queue),
+        watch_for_connection(watchdog_queue),
     )
 
 
-async def read_msgs(host, port, messages_queue, messages_to_save_queue):
+async def write_message(message: str, writer: StreamWriter) -> None:
+    writer.write(message.encode())
+    await writer.drain()
+    logging.info(f'Sent: {message}')
+
+
+async def read_message(reader: StreamReader) -> str:
+    message = await reader.readline()
+    decoded_message = message.decode()
+    logging.info(f'Received: {decoded_message!r}')
+    return decoded_message
+
+
+async def watch_for_connection(queue):
+    message = 'watchdog logging started'
+    while message:
+        watchdog_logger.info(f'[{int(time.time())}] {message}')
+
+        # async with timeout(1) as timeout_data:
+        #     message = await queue.get()
+        #     if timeout_data.expired:
+        #         watchdog_logger.info(f'[{int(time.time())}] 1s timeout is elapsed')
+        #     else:
+        #
+        #     timeout_data.reschedule(None)
+
+
+async def authorise(reader: StreamReader, writer: StreamWriter, status_updates_queue: asyncio.Queue, watchdog_queue) -> None:
+    await read_message(reader=reader)
+    async with aiofiles.open(consts.USER_HASH_FILE_NAME, mode='r') as hash_file:
+        token = await hash_file.read()
+    await write_message(message=f'{token}\n', writer=writer)
+    auth_token_data = await read_message(reader=reader)
+    try:
+        json_message = json.loads(auth_token_data)
+    except json.JSONDecodeError:
+        logger.error(consts.AUTH_ERROR_MESSAGE)
+        raise
+    else:
+        if json_message is None:
+            messagebox.showerror(title='Неверный токен', message=consts.TOKEN_ERROR_MESSAGE)
+            logger.error(consts.TOKEN_ERROR_MESSAGE)
+        else:
+            status_updates_queue.put_nowait(statuses.NicknameReceived(json_message['nickname']))
+            watchdog_queue.put_nowait('Connection is alive.Authorization done')
+            logger.info(f'Выполнена авторизация. Пользователь {json_message["nickname"]}')
+
+
+async def write_messages(host, port, sending_queue, status_updates_queue, watchdog_queue):
+    status_updates_queue.put_nowait(statuses.SendingConnectionStateChanged.INITIATED)
     async with open_connection(host=host, port=port) as (reader, writer):
+        status_updates_queue.put_nowait(statuses.SendingConnectionStateChanged.ESTABLISHED)
+        watchdog_queue.put_nowait('Prompt before auth')
+
+        await authorise(reader=reader, writer=writer, status_updates_queue=status_updates_queue, watchdog_queue=watchdog_queue)
+        while message := await sending_queue.get():
+            await write_message(message=f'{message}\n\n\n', writer=writer)
+            watchdog_queue.put_nowait('Connection is alive. Message sent')
+    status_updates_queue.put_nowait(statuses.SendingConnectionStateChanged.CLOSED)
+
+
+async def read_msgs(host, port, messages_queue, messages_to_save_queue, status_updates_queue, watchdog_queue):
+    status_updates_queue.put_nowait(statuses.ReadConnectionStateChanged.INITIATED)
+    async with open_connection(host=host, port=port) as (reader, writer):
+        status_updates_queue.put_nowait(statuses.ReadConnectionStateChanged.ESTABLISHED)
         while data := await reader.readline():
             message = data.decode()
+            watchdog_queue.put_nowait('Connection is alive. New message in chat')
             messages_queue.put_nowait(message)
             messages_to_save_queue.put_nowait(message)
+    status_updates_queue.put_nowait(statuses.ReadConnectionStateChanged.CLOSED)
 
 
 async def preload_chat_history(messages_queue: asyncio.Queue):
@@ -163,8 +240,8 @@ def main():
     messages_to_save_queue = asyncio.Queue()
     sending_queue = asyncio.Queue()
     status_updates_queue = asyncio.Queue()
-
-    loop.run_until_complete(draw(messages_queue, messages_to_save_queue, sending_queue, status_updates_queue))
+    watchdog_queue = asyncio.Queue()
+    loop.run_until_complete(draw(messages_queue, messages_to_save_queue, sending_queue, status_updates_queue, watchdog_queue))
 
 
 if __name__ == '__main__':
