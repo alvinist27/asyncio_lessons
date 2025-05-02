@@ -10,6 +10,7 @@ from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
 
 import aiofiles
+from async_timeout import timeout
 from dotenv import load_dotenv
 
 from graphic_chat import consts, statuses
@@ -164,15 +165,14 @@ async def read_message(reader: StreamReader) -> str:
 async def watch_for_connection(queue):
     message = 'watchdog logging started'
     while message:
-        watchdog_logger.info(f'[{int(time.time())}] {message}')
-
-        # async with timeout(1) as timeout_data:
-        #     message = await queue.get()
-        #     if timeout_data.expired:
-        #         watchdog_logger.info(f'[{int(time.time())}] 1s timeout is elapsed')
-        #     else:
-        #
-        #     timeout_data.reschedule(None)
+        current_timestamp = int(time.time())
+        try:
+            async with timeout(1):
+                message = await queue.get()
+        except asyncio.exceptions.TimeoutError:
+            watchdog_logger.info(f'[{current_timestamp}] 1s timeout is elapsed')
+        else:
+            watchdog_logger.info(f'[{current_timestamp}] {message}')
 
 
 async def authorise(reader: StreamReader, writer: StreamWriter, status_updates_queue: asyncio.Queue, watchdog_queue) -> None:
