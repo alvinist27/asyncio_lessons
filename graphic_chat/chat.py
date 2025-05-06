@@ -10,12 +10,14 @@ from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
 
 import aiofiles
+from anyio import create_task_group
 from async_timeout import timeout
 from dotenv import load_dotenv
+from exceptiongroup import ExceptionGroup
 
 from graphic_chat import consts, statuses
 from graphic_chat.config_data import ConfigData
-from graphic_chat.connections import open_connection
+from graphic_chat.connections import open_connection, reconnect
 from graphic_chat.exceptions import TkAppClosed
 
 load_dotenv()
@@ -139,13 +141,11 @@ async def draw(messages_queue, messages_to_save_queue, sending_queue, status_upd
 
     await preload_chat_history(messages_queue)
     await asyncio.gather(
-        write_messages(config_data.write_host, config_data.write_port, sending_queue, status_updates_queue, watchdog_queue),
+        handle_connection(config_data.write_host, config_data.write_port, config_data.listen_host, config_data.listen_port, sending_queue, messages_queue, messages_to_save_queue, status_updates_queue, watchdog_queue),
         update_tk(root_frame),
         update_status_panel(status_labels, status_updates_queue),
         update_conversation_history(conversation_panel, messages_queue),
-        read_msgs(config_data.listen_host, config_data.listen_port, messages_queue, messages_to_save_queue, status_updates_queue, watchdog_queue),
         save_msgs(messages_to_save_queue),
-        watch_for_connection(watchdog_queue),
     )
 
 
@@ -163,19 +163,13 @@ async def read_message(reader: StreamReader) -> str:
 
 
 async def watch_for_connection(queue):
-    message = 'watchdog logging started'
-    while message:
+    while message := await queue.get():
         current_timestamp = int(time.time())
-        try:
-            async with timeout(1):
-                message = await queue.get()
-        except asyncio.exceptions.TimeoutError:
-            watchdog_logger.info(f'[{current_timestamp}] 1s timeout is elapsed')
-        else:
-            watchdog_logger.info(f'[{current_timestamp}] {message}')
+        watchdog_logger.info(f'[{current_timestamp}] {message}')
 
 
 async def authorise(reader: StreamReader, writer: StreamWriter, status_updates_queue: asyncio.Queue, watchdog_queue) -> None:
+    watchdog_queue.put_nowait('Prompt before auth')
     await read_message(reader=reader)
     async with aiofiles.open(consts.USER_HASH_FILE_NAME, mode='r') as hash_file:
         token = await hash_file.read()
@@ -188,43 +182,54 @@ async def authorise(reader: StreamReader, writer: StreamWriter, status_updates_q
         raise
     else:
         if json_message is None:
-            messagebox.showerror(title='Неверный токен', message=consts.TOKEN_ERROR_MESSAGE)
             logger.error(consts.TOKEN_ERROR_MESSAGE)
+            messagebox.showerror(title='Неверный токен', message=consts.TOKEN_ERROR_MESSAGE)
         else:
             status_updates_queue.put_nowait(statuses.NicknameReceived(json_message['nickname']))
             watchdog_queue.put_nowait('Connection is alive.Authorization done')
             logger.info(f'Выполнена авторизация. Пользователь {json_message["nickname"]}')
 
 
-async def write_messages(host, port, sending_queue, status_updates_queue, watchdog_queue):
+async def ping_pong(reader, writer, status_updates_queue, watchdog_queue):
+    status_updates_queue.put_nowait(statuses.ReadConnectionStateChanged.INITIATED)
     status_updates_queue.put_nowait(statuses.SendingConnectionStateChanged.INITIATED)
-    async with open_connection(host=host, port=port) as (reader, writer):
-        status_updates_queue.put_nowait(statuses.SendingConnectionStateChanged.ESTABLISHED)
-        watchdog_queue.put_nowait('Prompt before auth')
+    while True:
+        try:
+            async with timeout(1) as timeout_obj:
+                await reader.readline()
+                await write_message('\n\n', writer)
+        finally:
+            if timeout_obj.expired:
+                status_updates_queue.put_nowait(statuses.ReadConnectionStateChanged.CLOSED)
+                status_updates_queue.put_nowait(statuses.SendingConnectionStateChanged.CLOSED)
+                watchdog_queue.put_nowait('No connection. 1s timeout is elapsed')
+                await asyncio.sleep(5)
+            else:
+                status_updates_queue.put_nowait(statuses.ReadConnectionStateChanged.ESTABLISHED)
+                status_updates_queue.put_nowait(statuses.SendingConnectionStateChanged.ESTABLISHED)
+                await asyncio.sleep(1)
 
-        await authorise(reader=reader, writer=writer, status_updates_queue=status_updates_queue, watchdog_queue=watchdog_queue)
-        while message := await sending_queue.get():
-            await write_message(message=f'{message}\n\n\n', writer=writer)
-            watchdog_queue.put_nowait('Connection is alive. Message sent')
-    status_updates_queue.put_nowait(statuses.SendingConnectionStateChanged.CLOSED)
+
+async def write_messages(reader, writer, sending_queue: asyncio.Queue, status_updates_queue, watchdog_queue):
+    while message := await sending_queue.get():
+        await write_message(message=f'{message}\n\n\n', writer=writer)
+        watchdog_queue.put_nowait('Connection is alive. Message sent')
 
 
 async def read_msgs(host, port, messages_queue, messages_to_save_queue, status_updates_queue, watchdog_queue):
-    status_updates_queue.put_nowait(statuses.ReadConnectionStateChanged.INITIATED)
     async with open_connection(host=host, port=port) as (reader, writer):
-        status_updates_queue.put_nowait(statuses.ReadConnectionStateChanged.ESTABLISHED)
         while data := await reader.readline():
             message = data.decode()
             watchdog_queue.put_nowait('Connection is alive. New message in chat')
             messages_queue.put_nowait(message)
             messages_to_save_queue.put_nowait(message)
-    status_updates_queue.put_nowait(statuses.ReadConnectionStateChanged.CLOSED)
 
 
 async def preload_chat_history(messages_queue: asyncio.Queue):
     async with aiofiles.open(consts.CHAT_HISTORY_FILE_NAME, 'r') as history_file:
         while data := await history_file.readline():
             messages_queue.put_nowait(data)
+        messages_queue.put_nowait('==============================latest messages================================\n\n')
 
 
 async def save_msgs(messages_to_save_queue):
@@ -232,6 +237,32 @@ async def save_msgs(messages_to_save_queue):
         while True:
             message = await messages_to_save_queue.get()
             await history_file.write(message)
+
+
+def handle_connection_error(exception_group: ExceptionGroup) -> None:
+    for exc in exception_group.exceptions:
+        logger.info(f'Error: {exc}')
+
+
+async def handle_connection(write_host, write_port, listen_host, listen_port, sending_queue, messages_queue, messages_to_save_queue, status_updates_queue, watchdog_queue):
+    while True:
+        try:
+            async with reconnect(write_host, write_port) as (reader, writer):
+                await authorise(reader=reader, writer=writer, status_updates_queue=status_updates_queue,
+                                watchdog_queue=watchdog_queue)
+                async with create_task_group() as task_group:
+                    task_group.start_soon(write_messages, reader, writer, sending_queue, status_updates_queue, watchdog_queue)
+                    task_group.start_soon(ping_pong, reader, writer, status_updates_queue, watchdog_queue)
+                    task_group.start_soon(read_msgs, listen_host, listen_port, messages_queue, messages_to_save_queue, status_updates_queue, watchdog_queue)
+                    task_group.start_soon(watch_for_connection, watchdog_queue)
+        except (ConnectionError, ExceptionGroup) as exc:
+            watchdog_queue.put_nowait('-------------------------ExceptionGroup--------------------------')
+            status_updates_queue.put_nowait(statuses.ReadConnectionStateChanged.CLOSED)
+            status_updates_queue.put_nowait(statuses.SendingConnectionStateChanged.CLOSED)
+            await asyncio.sleep(1)
+        else:
+            status_updates_queue.put_nowait(statuses.ReadConnectionStateChanged.ESTABLISHED)
+            status_updates_queue.put_nowait(statuses.SendingConnectionStateChanged.ESTABLISHED)
 
 
 def main():
