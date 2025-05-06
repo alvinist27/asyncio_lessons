@@ -22,3 +22,14 @@ class SendingConnectionStateChanged(Enum):
 class NicknameReceived:
     def __init__(self, nickname):
         self.nickname = nickname
+
+
+class QueueNames(Enum):
+    MESSAGES = 'messages'
+    MESSAGES_TO_SAVE = 'messages_to_save'
+    SENDING = 'sending_queue'
+    STATUS_UPDATES = 'status_updates'
+    WATCHDOG = 'watchdog'
+
+    def __str__(self):
+        return str(self.value)

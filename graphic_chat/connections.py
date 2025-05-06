@@ -22,4 +22,3 @@ async def reconnect(host, port):
     while True:
         async with open_connection(host, port) as (reader, writer):
             yield reader, writer
-
