@@ -10,6 +10,7 @@ from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
 
 import aiofiles
+import anyio
 from anyio import create_task_group
 from async_timeout import timeout
 from dotenv import load_dotenv
@@ -140,13 +141,12 @@ async def draw(messages_queue, messages_to_save_queue, sending_queue, status_upd
     config_data = configure_application()
 
     await preload_chat_history(messages_queue)
-    await asyncio.gather(
-        handle_connection(config_data.write_host, config_data.write_port, config_data.listen_host, config_data.listen_port, sending_queue, messages_queue, messages_to_save_queue, status_updates_queue, watchdog_queue),
-        update_tk(root_frame),
-        update_status_panel(status_labels, status_updates_queue),
-        update_conversation_history(conversation_panel, messages_queue),
-        save_msgs(messages_to_save_queue),
-    )
+    async with create_task_group() as task_group:
+        task_group.start_soon(handle_connection, config_data.write_host, config_data.write_port, config_data.listen_host, config_data.listen_port, sending_queue, messages_queue, messages_to_save_queue, status_updates_queue, watchdog_queue)
+        task_group.start_soon(update_tk, root_frame)
+        task_group.start_soon(update_status_panel, status_labels, status_updates_queue)
+        task_group.start_soon(update_conversation_history, conversation_panel, messages_queue),
+        task_group.start_soon(save_msgs, messages_to_save_queue)
 
 
 async def write_message(message: str, writer: StreamWriter) -> None:
@@ -266,13 +266,15 @@ async def handle_connection(write_host, write_port, listen_host, listen_port, se
 
 
 def main():
-    loop = asyncio.get_event_loop()
     messages_queue = asyncio.Queue()
     messages_to_save_queue = asyncio.Queue()
     sending_queue = asyncio.Queue()
     status_updates_queue = asyncio.Queue()
     watchdog_queue = asyncio.Queue()
-    loop.run_until_complete(draw(messages_queue, messages_to_save_queue, sending_queue, status_updates_queue, watchdog_queue))
+    try:
+        anyio.run(draw, messages_queue, messages_to_save_queue, sending_queue, status_updates_queue, watchdog_queue)
+    except (TkAppClosed, KeyboardInterrupt, ExceptionGroup):
+        pass
 
 
 if __name__ == '__main__':
