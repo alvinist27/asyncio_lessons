@@ -12,11 +12,13 @@ from graphic_chat.exceptions import TkAppClosed
 logger = logging.getLogger('base')
 
 
-def process_new_message(input_field, sending_queue):
-    text = input_field.get()
-    sending_queue.put_nowait(text)
-    logger.info(f'Пользователь написал: {text}')
-    input_field.delete(0, tk.END)
+async def update_tk(root_frame, interval=consts.TK_FRAME_UPDATE_INTERVAL):
+    while True:
+        try:
+            root_frame.update()
+        except tk.TclError:
+            raise TkAppClosed()
+        await asyncio.sleep(interval)
 
 
 def create_status_panel(root_frame):
@@ -37,15 +39,6 @@ def create_status_panel(root_frame):
     return nickname_label, status_read_label, status_write_label
 
 
-async def update_tk(root_frame, interval=consts.TK_FRAME_UPDATE_INTERVAL):
-    while True:
-        try:
-            root_frame.update()
-        except tk.TclError:
-            raise TkAppClosed()
-        await asyncio.sleep(interval)
-
-
 async def update_status_panel(status_labels, status_updates_queue):
     nickname_label, read_label, write_label = status_labels
 
@@ -63,6 +56,18 @@ async def update_status_panel(status_labels, status_updates_queue):
 
         if isinstance(msg, choices.NicknameReceived):
             nickname_label['text'] = f'Имя пользователя: {msg.nickname}'
+
+
+def set_connection_status(update_state_queue, read_state, write_state) -> None:
+    update_state_queue.put_nowait(read_state)
+    update_state_queue.put_nowait(write_state)
+
+
+def process_new_message(input_field, sending_queue):
+    text = input_field.get()
+    sending_queue.put_nowait(text)
+    logger.info(f'Пользователь написал: {text}')
+    input_field.delete(0, tk.END)
 
 
 async def update_conversation_history(panel, messages_queue):
@@ -96,11 +101,11 @@ async def draw(queues):
     input_field = tk.Entry(input_frame)
     input_field.pack(side='left', fill=tk.X, expand=True)
 
-    input_field.bind('<Return>', lambda event: process_new_message(input_field, queues[QueueNames.SENDING]))
+    input_field.bind('<Return>', lambda event: process_new_message(input_field, queues[QueueNames.SENDING_MESSAGES]))
 
     send_button = tk.Button(input_frame)
     send_button['text'] = 'Отправить'
-    send_button['command'] = lambda: process_new_message(input_field, queues[QueueNames.SENDING])
+    send_button['command'] = lambda: process_new_message(input_field, queues[QueueNames.SENDING_MESSAGES])
     send_button.pack(side='left')
 
     conversation_panel = ScrolledText(root_frame, wrap='none')

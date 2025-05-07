@@ -27,7 +27,7 @@ class NicknameReceived:
 class QueueNames(Enum):
     MESSAGES = 'messages'
     MESSAGES_TO_SAVE = 'messages_to_save'
-    SENDING = 'sending_queue'
+    SENDING_MESSAGES = 'sending_messages'
     STATUS_UPDATES = 'status_updates'
     WATCHDOG = 'watchdog'
 
