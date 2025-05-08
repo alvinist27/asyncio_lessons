@@ -12,10 +12,11 @@ PING_PONG_ERROR_RECONNECT_TIMEOUT = 5
 PING_PONG_RECONNECT_TIMEOUT = 1
 BASE_TIMEOUT = 1
 
-SUBMIT_MESSAGE_CHARS = '\n\n'
-REGISTRATION_START_MESSAGE = 'Prompt before registration'
+SUBMIT_MESSAGE_CHARS = '\n'
+REGISTRATION_START_MESSAGE = 'Registration started!'
+REGISTRATION_SUCCESS_MESSAGE = 'Registration successful!'
 AUTH_START_MESSAGE = 'Prompt before auth'
 AUTH_SUCCESS_MESSAGE = 'Connection is alive. Authorization done'
 WRITE_SUCCESS_MESSAGE = 'Connection is alive. Message sent'
 READ_SUCCESS_MESSAGE = 'Connection is alive. New message in chat'
-LATEST_MESSAGES_LABEL = '==============================latest messages================================'
+LATEST_MESSAGES_LABEL = '================= latest messages ======================'

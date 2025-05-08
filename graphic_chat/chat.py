@@ -19,6 +19,7 @@ from graphic_chat.connections import open_connection, reconnect
 from graphic_chat.exceptions import TkAppClosed
 from graphic_chat.gui import draw, set_connection_status
 from graphic_chat.messages import read_message, write_message
+from graphic_chat.chat_types import QueuesType
 
 load_dotenv()
 logger = logging.getLogger('base')
@@ -43,13 +44,13 @@ def configure_application() -> ConfigData:
     )
 
 
-async def watch_for_connection(queue):
+async def watch_for_connection(queue: asyncio.Queue) -> None:
     while message := await queue.get():
         current_timestamp = int(time.time())
         watchdog_logger.info(f'[{current_timestamp}] {message}')
 
 
-async def ping_pong(reader, writer, queues):
+async def ping_pong(reader: StreamReader, writer: StreamWriter, queues: QueuesType) -> None:
     set_connection_status(
         queues[choices.QueueNames.STATUS_UPDATES],
         choices.ReadConnectionStateChanged.INITIATED,
@@ -78,13 +79,13 @@ async def ping_pong(reader, writer, queues):
                 await asyncio.sleep(consts.PING_PONG_RECONNECT_TIMEOUT)
 
 
-async def write_chat_messages(writer, queues):
+async def write_chat_messages(writer: StreamWriter, queues: QueuesType) -> None:
     while message := await queues[choices.QueueNames.SENDING_MESSAGES].get():
         await write_message(message=f'{message}{consts.SUBMIT_MESSAGE_CHARS}', writer=writer)
         queues[choices.QueueNames.WATCHDOG].put_nowait(consts.WRITE_SUCCESS_MESSAGE)
 
 
-async def read_chat_messages(host, port, queues):
+async def read_chat_messages(host: str, port: str, queues: QueuesType) -> None:
     async with open_connection(host=host, port=port) as (reader, writer):
         while data := await reader.readline():
             message = data.decode()
@@ -93,21 +94,21 @@ async def read_chat_messages(host, port, queues):
             queues[choices.QueueNames.MESSAGES_TO_SAVE].put_nowait(message)
 
 
-async def preload_chat_history(messages_queue: asyncio.Queue):
+async def preload_chat_history(messages_queue: asyncio.Queue) -> None:
     async with aiofiles.open(consts.CHAT_HISTORY_FILE_NAME, 'r') as history_file:
         while data := await history_file.readline():
             messages_queue.put_nowait(data)
         messages_queue.put_nowait(f'{consts.LATEST_MESSAGES_LABEL}{consts.SUBMIT_MESSAGE_CHARS}')
 
 
-async def save_messages(messages_to_save_queue):
+async def save_messages(messages_to_save_queue: asyncio.Queue) -> None:
     async with aiofiles.open(consts.CHAT_HISTORY_FILE_NAME, 'a') as history_file:
         while True:
             message = await messages_to_save_queue.get()
             await history_file.write(message)
 
 
-async def authorise(reader: StreamReader, writer: StreamWriter, queues) -> None:
+async def authorise(reader: StreamReader, writer: StreamWriter, queues: QueuesType) -> None:
     queues[choices.QueueNames.WATCHDOG].put_nowait(consts.AUTH_START_MESSAGE)
     await read_message(reader=reader)
     async with aiofiles.open(consts.USER_HASH_FILE_NAME, mode='r') as hash_file:
@@ -129,7 +130,13 @@ async def authorise(reader: StreamReader, writer: StreamWriter, queues) -> None:
             logger.info(f'Auth successful. User {json_message["nickname"]}')
 
 
-async def handle_connection(write_host, write_port, listen_host, listen_port, queues):
+async def handle_connection(
+    write_host: str,
+    write_port: str,
+    listen_host: str,
+    listen_port: str,
+    queues: QueuesType,
+) -> None:
     while True:
         try:
             async with reconnect(write_host, write_port) as (reader, writer):
@@ -155,7 +162,7 @@ async def handle_connection(write_host, write_port, listen_host, listen_port, qu
             )
 
 
-async def main():
+async def main() -> None:
     queues: dict[choices.QueueNames, asyncio.Queue] = {
         choices.QueueNames.MESSAGES: asyncio.Queue(),
         choices.QueueNames.MESSAGES_TO_SAVE: asyncio.Queue(),

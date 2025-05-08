@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import tkinter as tk
+from datetime import datetime
 from tkinter.scrolledtext import ScrolledText
 
 from anyio import create_task_group
@@ -73,11 +74,12 @@ def process_new_message(input_field, sending_queue):
 async def update_conversation_history(panel, messages_queue):
     while True:
         msg = await messages_queue.get()
+        formatted_message = f'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | {msg}'
 
         panel['state'] = 'normal'
         if panel.index('end-1c') != '1.0':
             panel.insert('end', '\n')
-        panel.insert('end', msg)
+        panel.insert('end', formatted_message)
         # TODO сделать промотку умной, чтобы не мешала просматривать историю сообщений
         # ScrolledText.frame
         # ScrolledText.vbar
@@ -85,7 +87,7 @@ async def update_conversation_history(panel, messages_queue):
         panel['state'] = 'disabled'
 
 
-async def draw(queues):
+async def draw(queues, status_bar_available: bool = True):
     root = tk.Tk()
 
     root.title('Чат Майнкрафтера')
@@ -93,7 +95,8 @@ async def draw(queues):
     root_frame = tk.Frame()
     root_frame.pack(fill='both', expand=True)
 
-    status_labels = create_status_panel(root_frame)
+    if status_bar_available:
+        status_labels = create_status_panel(root_frame)
 
     input_frame = tk.Frame(root_frame)
     input_frame.pack(side='bottom', fill=tk.X)
@@ -113,5 +116,6 @@ async def draw(queues):
 
     async with create_task_group() as task_group:
         task_group.start_soon(update_tk, root_frame)
-        task_group.start_soon(update_status_panel, status_labels, queues[QueueNames.STATUS_UPDATES])
         task_group.start_soon(update_conversation_history, conversation_panel, queues[QueueNames.MESSAGES])
+        if status_bar_available:
+            task_group.start_soon(update_status_panel, status_labels, queues[QueueNames.STATUS_UPDATES])
