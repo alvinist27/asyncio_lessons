@@ -80,10 +80,9 @@ async def update_conversation_history(panel, messages_queue):
         if panel.index('end-1c') != '1.0':
             panel.insert('end', '\n')
         panel.insert('end', formatted_message)
-        # TODO сделать промотку умной, чтобы не мешала просматривать историю сообщений
-        # ScrolledText.frame
-        # ScrolledText.vbar
-        panel.yview(tk.END)
+        _, end = panel.vbar.get()
+        if end == consts.WINDOW_LOWER_VERTICAL_POSITION:
+            panel.yview(tk.END)
         panel['state'] = 'disabled'
 
 

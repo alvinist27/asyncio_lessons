@@ -18,7 +18,7 @@ from graphic_chat.config_data import ConfigData
 from graphic_chat.connections import open_connection, reconnect
 from graphic_chat.exceptions import TkAppClosed
 from graphic_chat.gui import draw, set_connection_status
-from graphic_chat.messages import read_message, write_message
+from graphic_chat.messages import is_bot_message, read_message, write_message
 from graphic_chat.chat_types import QueuesType
 
 load_dotenv()
@@ -88,7 +88,9 @@ async def write_chat_messages(writer: StreamWriter, queues: QueuesType) -> None:
 async def read_chat_messages(host: str, port: str, queues: QueuesType) -> None:
     async with open_connection(host=host, port=port) as (reader, writer):
         while data := await reader.readline():
-            message = data.decode()
+            message: str = data.decode()
+            if is_bot_message(message=message):
+                continue
             queues[choices.QueueNames.WATCHDOG].put_nowait(consts.READ_SUCCESS_MESSAGE)
             queues[choices.QueueNames.MESSAGES].put_nowait(message)
             queues[choices.QueueNames.MESSAGES_TO_SAVE].put_nowait(message)

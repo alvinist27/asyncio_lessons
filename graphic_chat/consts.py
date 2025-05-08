@@ -20,3 +20,8 @@ AUTH_SUCCESS_MESSAGE = 'Connection is alive. Authorization done'
 WRITE_SUCCESS_MESSAGE = 'Connection is alive. Message sent'
 READ_SUCCESS_MESSAGE = 'Connection is alive. New message in chat'
 LATEST_MESSAGES_LABEL = '================= latest messages ======================'
+
+BOT_USERNAME_WORDS_COUNT = 1
+MESSAGE_USERNAME_SPLIT_CHAR = ':'
+
+WINDOW_LOWER_VERTICAL_POSITION = 1.0
