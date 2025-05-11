@@ -2,8 +2,8 @@ from bs4 import BeautifulSoup
 import requests
 import pytest
 
-from .exceptions import ArticleNotFound
-from .html_tools import remove_buzz_attrs, remove_buzz_tags, remove_all_tags
+from fake_news_filter.adapters.exceptions import ArticleNotFound
+from fake_news_filter.adapters.html_tools import remove_buzz_attrs, remove_buzz_tags, remove_all_tags
 
 
 def sanitize(html, plaintext=False):
