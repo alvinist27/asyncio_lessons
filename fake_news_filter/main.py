@@ -11,6 +11,7 @@ from fake_news_filter.core import consts
 from fake_news_filter.core.choices import ProcessingStatus
 from fake_news_filter.core.consts import ARTICLES_TO_FILTER
 from fake_news_filter.core.fake_rate import FakeRate
+from fake_news_filter.core.time_counter import count_time
 from fake_news_filter.text_tools import calculate_jaundice_rate, split_by_words
 
 
@@ -28,24 +29,28 @@ async def fetch(session, url: str):
 
 
 async def process_article(session, morph, charged_words, url, result):
-    try:
-        html = await fetch(session, url)
-    except aiohttp.client_exceptions.ClientResponseError:
-        result.append(FakeRate(url=url, status=ProcessingStatus.FETCH_ERROR))
-        return None
-    except ArticleNotFound:
-        result.append(FakeRate(url=url, status=ProcessingStatus.PARSING_ERROR))
-        return None
-    except TimeoutError:
-        result.append(FakeRate(url=url, status=ProcessingStatus.TIMEOUT))
-        return None
+    with count_time():
+        try:
+            html = await fetch(session, url)
+        except aiohttp.client_exceptions.ClientResponseError:
+            result.append(FakeRate(url=url, status=ProcessingStatus.FETCH_ERROR))
+            return None
+        except ArticleNotFound:
+            result.append(FakeRate(url=url, status=ProcessingStatus.PARSING_ERROR))
+            return None
+        except TimeoutError:
+            result.append(FakeRate(url=url, status=ProcessingStatus.TIMEOUT))
+            return None
 
-    topic_text = sanitize(html, plaintext=True)
+        topic_text = sanitize(html, plaintext=True)
+        try:
+            article_words = await split_by_words(morph=morph, text=topic_text)
+        except TimeoutError:
+            result.append(FakeRate(url=url, status=ProcessingStatus.TIMEOUT))
+            return None
 
-    article_words = split_by_words(morph=morph, text=topic_text)
-    rating = calculate_jaundice_rate(article_words=article_words, charged_words=charged_words)
-
-    result.append(FakeRate(url=url, status=ProcessingStatus.OK,  rating=rating, words_count=len(article_words)))
+        rating = calculate_jaundice_rate(article_words=article_words, charged_words=charged_words)
+        result.append(FakeRate(url=url, status=ProcessingStatus.OK,  rating=rating, words_count=len(article_words)))
 
 
 async def main():
