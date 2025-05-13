@@ -19,7 +19,7 @@ logger = logging.getLogger('root')
 logging.basicConfig(level=logging.INFO)
 
 
-async def fetch(session, url: str):
+async def fetch(session: aiohttp.ClientSession, url: str) -> str:
     if not any(domain in url for domain in consts.ADAPTERS_DOMAINS):
         raise ArticleNotFound
     try:
@@ -32,7 +32,13 @@ async def fetch(session, url: str):
             raise TimeoutError
 
 
-async def process_article(session, morph, charged_words, url, result):
+async def process_article(
+    session: aiohttp.ClientSession,
+    morph: pymorphy2.MorphAnalyzer,
+    charged_words: list[str],
+    url: str,
+    result: list[dict],
+) -> None:
     with count_time():
         try:
             html = await fetch(session, url)
@@ -61,9 +67,9 @@ async def process_article(session, morph, charged_words, url, result):
         )
 
 
-async def analyze_article_urls(morph: pymorphy2.MorphAnalyzer, urls: list):
+async def analyze_article_urls(morph: pymorphy2.MorphAnalyzer, urls: list) -> list[dict]:
     logger.info(f'Analyze for {len(urls)} urls is started')
-    charged_words = pathlib.Path(consts.CHARGED_WORDS_FILENAME).read_text().split('\n')
+    charged_words = pathlib.Path(consts.CHARGED_WORDS_FILE_PATH).read_text().split('\n')
 
     results = []
     async with aiohttp.ClientSession() as session:
@@ -76,3 +82,7 @@ async def analyze_article_urls(morph: pymorphy2.MorphAnalyzer, urls: list):
         logger.info(result)
 
     return results
+
+
+if __name__ == '__main__':
+    anyio.run(analyze_article_urls, pymorphy2.MorphAnalyzer(), consts.ARTICLES_TO_FILTER)

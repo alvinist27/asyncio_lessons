@@ -4,12 +4,12 @@ import pymorphy2 as pymorphy2
 from aiohttp import web
 
 from fake_news_filter.core import consts
-from fake_news_filter.main import analyze_article_urls
+from fake_news_filter.analyze import analyze_article_urls
 
 morph = pymorphy2.MorphAnalyzer()
 
 
-async def analyze_articles(request: web.Request):
+async def analyze_articles(request: web.Request) -> web.Response:
     urls = request.query.get('urls', '')
     if not urls:
         return web.json_response({'error': consts.EMPTY_URLS_QUERY_PARAM}, status=HTTPStatus.BAD_REQUEST)
