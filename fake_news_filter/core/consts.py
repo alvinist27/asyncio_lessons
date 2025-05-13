@@ -1,5 +1,5 @@
 ADAPTERS_DOMAINS = (
-    'https://inosmi.ru',
+    'inosmi.ru',
 )
 
 ARTICLES_TO_FILTER = (
@@ -8,6 +8,7 @@ ARTICLES_TO_FILTER = (
     'https://inosmi.ru/20190629/245385044.html',
     'https://inosmi.ru/20190629/245382801.html',
     'https://inosmi.ru/20190629/245384728.html',
+    'http://example.com',
 )
 
 DEFAULT_BLACKLIST_TAGS = (
@@ -27,5 +28,8 @@ DEFAULT_UNWRAPLIST_TAGS = (
 
 CHARGED_WORDS_FILENAME = 'charged_words.txt'
 
+ANALYZE_URLS_LIMIT_COUNT = 10
+ANALYZE_URLS_LIMIT_MESSAGE = 'too many urls in request, should be 10 or less'
+EMPTY_URLS_QUERY_PARAM = 'empty query parameter "urls", should be a comma separated list'
 SPLIT_WORDS_TIMEOUT_SECONDS = 3
 FETCH_ARTICLE_TIMEOUT_SECONDS = 5
