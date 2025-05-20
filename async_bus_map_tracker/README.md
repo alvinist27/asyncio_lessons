@@ -2,7 +2,7 @@
 
 Веб-приложение показывает передвижение автобусов на карте Москвы.
 
-<img src="screenshots/buses.gif">
+<img src="screenshots/buses.gif" alt="buses">
 
 ## Как запустить
 
@@ -14,7 +14,7 @@
 
 Внизу справа на странице можно включить отладочный режим логгирования и указать нестандартный адрес веб-сокета.
 
-<img src="screenshots/settings.png">
+<img src="screenshots/settings.png" alt="settings">
 
 Настройки сохраняются в Local Storage браузера и не пропадают после обновления страницы. Чтобы сбросить настройки удалите ключи из Local Storage с помощью Chrome Dev Tools —> Вкладка Application —> Local Storage.
 
@@ -24,7 +24,7 @@
 
 Фронтенд ожидает получить от сервера JSON сообщение со списком автобусов:
 
-```js
+```json
 {
   "msgType": "Buses",
   "buses": [
@@ -38,26 +38,19 @@
 
 Фронтенд отслеживает перемещение пользователя по карте и отправляет на сервер новые координаты окна:
 
-```js
+```json
 {
   "msgType": "newBounds",
   "data": {
     "east_lng": 37.65563964843751,
     "north_lat": 55.77367652953477,
     "south_lat": 55.72628839374007,
-    "west_lng": 37.54440307617188,
-  },
+    "west_lng": 37.54440307617188
+  }
 }
 ```
-
-
 
 ## Используемые библиотеки
 
 - [Leaflet](https://leafletjs.com/) — отрисовка карты
-- [loglevel](https://www.npmjs.com/package/loglevel) для логгирования
-
-
-## Цели проекта
-
-Код написан в учебных целях — это урок в курсе по Python и веб-разработке на сайте [Devman](https://dvmn.org).
+- [loglevel](https://www.npmjs.com/package/loglevel) для логирования
