@@ -33,7 +33,7 @@ async def talk_to_browser(request):
         try:
             message = dumps({"msgType": "Buses", "buses": list(buses.values())})
             await ws.send_message(message)
-            logger.info(f'message received: {message}')
+            logger.info(f'message sent: {message}')
         except ConnectionClosed:
             break
         except Exception as exc:

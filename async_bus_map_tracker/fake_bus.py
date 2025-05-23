@@ -2,8 +2,7 @@ import json
 import logging
 import os
 from itertools import chain, cycle, islice
-from random import randint
-from sys import stderr
+from random import choice, randint
 
 import trio
 from exceptiongroup import ExceptionGroup
@@ -25,32 +24,44 @@ def load_routes(directory_path='routes'):
                 yield json.load(file)
 
 
-async def run_bus(bus_index, bus_id, coordinates):
-    try:
-        async with open_websocket_url('ws://127.0.0.1:8001') as ws:
-            while True:
-                for coordinate in islice(cycle(chain(coordinates, reversed(coordinates))), randint(10, 100)):
-                    message = {
-                        "msgType": "Buses",
-                        "buses": [
-                            {"busId": generate_bus_id(bus_id, bus_index), "lat": coordinate[0], "lng": coordinate[1], "route": bus_id},
-                        ]
-                    }
-                    await ws.send_message(json.dumps(message, ensure_ascii=True))
-                    await trio.sleep(0.01)
-                    logger.info(f'message send {message}')
-    except OSError as ose:
-        print('Connection attempt failed: %s' % ose, file=stderr)
-    except Exception as exc:
-        print(1)
+async def send_updates(server_address, receive_channel):
+    async with open_websocket_url(server_address) as ws:
+        async with receive_channel:
+            async for value in receive_channel:
+                await ws.send_message(value)
+                logger.info(f'message send {value}')
+
+
+async def run_bus(send_channel, bus_index, bus_id, coordinates):
+    async with send_channel:
+        while True:
+            for coordinate in islice(cycle(chain(coordinates, reversed(coordinates))), randint(10, 100)):
+                message = {
+                    "msgType": "Buses",
+                    "buses": [
+                        {"busId": generate_bus_id(bus_id, bus_index), "lat": coordinate[0], "lng": coordinate[1], "route": bus_id},
+                    ]
+                }
+                await send_channel.send(json.dumps(message, ensure_ascii=True))
+                await trio.sleep(0.1)
+                print(message)
+                logger.info(f'message send {message}')
 
 
 async def main():
+    send_channel, receive_channel = trio.open_memory_channel(0)
+    receiver_clones = [receive_channel.clone() for _ in range(10)]
+    sender_clones = [send_channel.clone() for _ in range(10)]
     try:
         async with trio.open_nursery() as nursery:
-            for route in load_routes():
-                for bus_index in range(randint(1, 10)):
-                    nursery.start_soon(run_bus, bus_index, route['name'], route['coordinates'])
+            for i in range(10):
+                nursery.start_soon(send_updates, 'ws://127.0.0.1:8001', receiver_clones[i])
+
+            routes = list(load_routes())
+            for route in routes:
+                for bus_index in range(randint(100, 200)):
+                    channel = choice(sender_clones)
+                    nursery.start_soon(run_bus, channel, bus_index, route['name'], route['coordinates'])
     except ExceptionGroup as exc:
         print(exc)
 
