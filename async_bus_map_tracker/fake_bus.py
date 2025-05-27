@@ -11,7 +11,8 @@ from dotenv import load_dotenv
 from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 from trio_websocket import open_websocket_url
 
-from async_bus_map_tracker.config_data import ConfigData
+from async_bus_map_tracker.core.config_data import ConfigData
+from async_bus_map_tracker.core.connections import relaunch_on_disconnect
 
 load_dotenv()
 logger = logging.getLogger()
@@ -30,6 +31,7 @@ def load_routes(directory_path='routes'):
                 yield json.load(file)
 
 
+@relaunch_on_disconnect
 async def send_updates(server_address, receive_channel):
     async with open_websocket_url(server_address) as ws:
         async with receive_channel:
