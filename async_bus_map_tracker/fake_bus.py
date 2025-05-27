@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from contextlib import suppress
+from dataclasses import asdict
 from itertools import chain, cycle, islice
 from random import choice, randint
 
@@ -11,8 +12,8 @@ from dotenv import load_dotenv
 from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 from trio_websocket import open_websocket_url
 
-from async_bus_map_tracker.core.config_data import ConfigData
 from async_bus_map_tracker.core.connections import relaunch_on_disconnect
+from async_bus_map_tracker.core.types import Bus, ConfigData
 
 load_dotenv()
 logger = logging.getLogger()
@@ -46,9 +47,12 @@ async def run_bus(send_channel, bus_index, bus_id, coordinates, refresh_timeout)
             for coordinate in islice(cycle(chain(coordinates, reversed(coordinates))), randint(10, 100)):
                 message = {
                     "msgType": "Buses",
-                    "buses": [
-                        {"busId": generate_bus_id(bus_id, bus_index), "lat": coordinate[0], "lng": coordinate[1], "route": bus_id},
-                    ]
+                    "buses": asdict(Bus(
+                        busId=generate_bus_id(bus_id, bus_index),
+                        lat=coordinate[0],
+                        lng=coordinate[1],
+                        route=bus_id
+                    )),
                 }
                 await send_channel.send(json.dumps(message, ensure_ascii=True))
                 await trio.sleep(refresh_timeout)
