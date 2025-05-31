@@ -1,13 +1,14 @@
 import logging
 from contextlib import suppress
 from dataclasses import asdict
-from json import dumps, loads
+from json import dumps
 
 import trio
 from trio_websocket import ConnectionClosed, serve_websocket
 
 from async_bus_map_tracker.core.config import configure_application
-from async_bus_map_tracker.core.types import Bus, WindowBounds
+from async_bus_map_tracker.core.types import Bus, MessageTypes, MessageValidationError, WindowBounds
+from async_bus_map_tracker.core.validators import JsonMessageValidator
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
@@ -24,7 +25,7 @@ async def send_buses(ws, bounds: WindowBounds):
             if bounds.is_inside(bus.lat, bus.lng):
                 busses[bus_id] = asdict(bus)
         logger.info(f'{len(busses)} buses inside bounds')
-        message = dumps({"msgType": "Buses", "buses": list(busses.values())})
+        message = dumps({'msgType': 'Buses', 'buses': list(busses.values())})
         await ws.send_message(message)
     except Exception as exc:
         print(exc)
@@ -44,7 +45,12 @@ async def listen_browser(ws, bounds: WindowBounds):
 
             if not message:
                 continue
-            bounds.update(**loads(message)['data'])
+
+            json_message = JsonMessageValidator(message=message, is_bounds=True).get_validated_data()
+            if isinstance(json_message, MessageValidationError):
+                ws.send_message(json_message)
+                continue
+            bounds.update(**json_message)
             await send_buses(ws, bounds)
     except Exception as exc:
         print(exc)
@@ -73,8 +79,13 @@ async def echo_server(request):
         try:
             message = await ws.get_message()
             await ws.send_message(message)
-            json_message = loads(message)
-            if json_message['msgType'] == 'Buses':
+
+            json_message = JsonMessageValidator(message=message, is_bounds=True).get_validated_data()
+            if isinstance(json_message, MessageValidationError):
+                ws.send_message(json_message)
+                continue
+
+            if json_message['msgType'] == MessageTypes.BUSSES:
                 buses[json_message['buses']['busId']] = Bus(**json_message['buses'])
             logger.info(f'message received: {message}')
         except ConnectionClosed:
