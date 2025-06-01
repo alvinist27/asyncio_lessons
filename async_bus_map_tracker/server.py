@@ -4,8 +4,9 @@ from dataclasses import asdict
 from json import dumps
 
 import trio
-from trio_websocket import ConnectionClosed, serve_websocket
+from trio_websocket import ConnectionClosed, serve_websocket, WebSocketConnection, WebSocketRequest
 
+from async_bus_map_tracker.core import consts
 from async_bus_map_tracker.core.config import configure_application
 from async_bus_map_tracker.core.types import Bus, MessageTypes, MessageValidationError, WindowBounds
 from async_bus_map_tracker.core.validators import JsonMessageValidator
@@ -16,64 +17,72 @@ logging.basicConfig(level=logging.INFO)
 buses = {}
 
 
-async def send_buses(ws, bounds: WindowBounds):
-    """bounds mutable"""
-    try:
-        busses = {}
+async def send_buses(ws: WebSocketConnection, bounds: WindowBounds) -> None:
+    """Send buses to websocket.
 
-        for bus_id, bus in buses.items():
+    Args:
+        ws: WebSocketConnection instance;
+        bounds: mutable argument as WindowBounds instance.
+    """
+    try:
+        bounds_buses = {}
+        for bus_id, bus in bounds_buses.items():
             if bounds.is_inside(bus.lat, bus.lng):
-                busses[bus_id] = asdict(bus)
-        logger.info(f'{len(busses)} buses inside bounds')
-        message = dumps({'msgType': 'Buses', 'buses': list(busses.values())})
+                bounds_buses[bus_id] = asdict(bus)
+        logger.info(f'{len(bounds_buses)} buses inside bounds')
+        message = dumps({'msgType': MessageTypes.BUSES.value, 'buses': list(bounds_buses.values())})
         await ws.send_message(message)
     except Exception as exc:
         print(exc)
 
 
-async def listen_browser(ws, bounds: WindowBounds):
-    """bounds mutable"""
-    try:
-        while True:
-            message, counter = '', 0
-            try:
-                message = await ws.get_message()
-            except ConnectionClosed:
-                logger.error(ConnectionClosed)
-            else:
-                logger.info(f'received message {message}')
+async def listen_browser(ws: WebSocketConnection, bounds: WindowBounds) -> None:
+    """Listen browser websocket .
 
-            if not message:
-                continue
+    Args:
+        ws: WebSocketConnection instance;
+        bounds: mutable argument as WindowBounds instance.
+    """
+    while True:
+        try:
+            message = await ws.get_message()
+        except ConnectionClosed as exc:
+            logger.error(f'ConnectionClosed {exc}')
+            raise exc
+        else:
+            logger.info(f'received message {message}')
 
-            json_message = JsonMessageValidator(message=message, is_bounds=True).get_validated_data()
-            if isinstance(json_message, MessageValidationError):
-                ws.send_message(json_message)
-                continue
-            bounds.update(**json_message)
-            await send_buses(ws, bounds)
-    except Exception as exc:
-        print(exc)
-
-
-async def periodic_send_busses(ws, bounds: WindowBounds):
-    try:
-        while True:
-            await send_buses(ws, bounds)
-            await trio.sleep(1)
-    except Exception as exc:
-        print(exc)
+        if not message:
+            continue
+        json_message = JsonMessageValidator(message=message, is_bounds=True).get_validated_data()
+        if isinstance(json_message, MessageValidationError):
+            await ws.send_message(str(json_message))
+            continue
+        bounds.update(**json_message)
+        await send_buses(ws, bounds)
 
 
-async def talk_to_browser(request):
-    bounds = WindowBounds()
+async def periodic_send_buses(ws: WebSocketConnection, bounds: WindowBounds) -> None:
+    """Send buses specified amount of seconds.
+
+    Args:
+        ws: WebSocketConnection instance;
+        bounds: mutable argument as WindowBounds instance.
+    """
+    while True:
+        await send_buses(ws, bounds)
+        await trio.sleep(consts.BUSES_UPDATE_TIMEOUT)
+
+
+async def talk_to_browser(request: WebSocketRequest) -> None:
     ws = await request.accept()
+    bounds = WindowBounds()
     async with trio.open_nursery() as nursery:
         nursery.start_soon(listen_browser, ws, bounds)
-        nursery.start_soon(periodic_send_busses, ws, bounds)
+        nursery.start_soon(periodic_send_buses, ws, bounds)
 
 
-async def echo_server(request):
+async def handle_bus_messages(request: WebSocketRequest) -> None:
     ws = await request.accept()
     while True:
         try:
@@ -82,23 +91,21 @@ async def echo_server(request):
 
             json_message = JsonMessageValidator(message=message, is_bounds=True).get_validated_data()
             if isinstance(json_message, MessageValidationError):
-                ws.send_message(json_message)
+                await ws.send_message(str(json_message))
                 continue
 
-            if json_message['msgType'] == MessageTypes.BUSSES:
+            if json_message['msgType'] == MessageTypes.BUSES:
                 buses[json_message['buses']['busId']] = Bus(**json_message['buses'])
             logger.info(f'message received: {message}')
         except ConnectionClosed:
             break
-        except Exception as exc:
-            print(exc)
 
 
-async def main():
+async def main() -> None:
     config = configure_application()
     with suppress(KeyboardInterrupt):
         async with trio.open_nursery() as nursery:
-            nursery.start_soon(serve_websocket, echo_server, config.server_host, config.server_port, None)
+            nursery.start_soon(serve_websocket, handle_bus_messages, config.server_host, config.server_port, None)
             nursery.start_soon(serve_websocket, talk_to_browser, config.server_host, config.browser_port, None)
 
 

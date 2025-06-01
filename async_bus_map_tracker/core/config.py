@@ -27,7 +27,7 @@ def configure_application() -> ConfigData:
         server_port=int(parser_args.server_port or os.getenv('BUS_PORT', '')),
         browser_port=int(parser_args.browser_port or os.getenv('BROWSER_PORT', '')),
         routes_number=int(parser_args.routes_number or os.getenv('ROUTES_NUMBER', '')),
-        buses_per_route=int(parser_args.buses_per_route or os.getenv('BUSSES_PER_ROUTE', '')),
+        buses_per_route=int(parser_args.buses_per_route or os.getenv('BUSES_PER_ROUTE', '')),
         websockets_number=int(parser_args.websockets_number or os.getenv('WEBSOCKETS_NUMBER', '')),
         emulator_id=parser_args.emulator_id or os.getenv('PREFIX_EMULATOR_ID', ''),
         refresh_timeout=int(parser_args.refresh_timeout or os.getenv('COORD_REFRESH_TIMEOUT', '')),

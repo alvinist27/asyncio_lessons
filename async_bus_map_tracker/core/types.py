@@ -2,6 +2,27 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+class MessageTypes(Enum):
+    BUSES = 'Buses'
+    NEW_BOUNDS = 'newBounds'
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+    @staticmethod
+    def exists(value) -> bool:
+        return value in set(item.value for item in MessageTypes)
+
+
+class MessageErrors(Enum):
+    INVALID_JSON = 'Requires valid JSON'
+    NO_MSG_TYPE = 'Requires msgType specified'
+    NO_DATA_IN_BOUNDS = 'Requires data specified'
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
 @dataclass(frozen=True, kw_only=True, slots=True)
 class ConfigData:
     server_protocol: str
@@ -31,29 +52,17 @@ class WindowBounds:
     south_lat: float = 0
     west_lng: float = 0
 
-    def is_inside(self, lat, lng):
+    def is_inside(self, lat, lng) -> bool:
         return (self.south_lat <= lat <= self.north_lat) and (self.west_lng <= lng <= self.east_lng)
 
-    def update(self, south_lat, north_lat, west_lng, east_lng):
-        self.south_lat, self.north_lat, self.west_lng, self.east_lng = south_lat, north_lat, west_lng, east_lng
-
-
-class MessageTypes(Enum):
-    BUSSES = 'Buses'
-    NEW_BOUNDS = 'newBounds'
-
-    def __str__(self):
-        return str(self.value)
-
-    @staticmethod
-    def exists(value):
-        return value in set(item.value for item in MessageTypes)
+    def update(self, east_lng, north_lat, south_lat, west_lng) -> None:
+        self.east_lng, self.north_lat, self.south_lat, self.west_lng = east_lng, north_lat, south_lat, west_lng
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class MessageValidationError:
-    error: str
+    error: MessageErrors
     message_type: str = 'Errors'
 
     def __str__(self):
-        return '{"errors": [{}], "msgType": "{}"}'.format(self.error, self.message_type)
+        return '{"errors": [{}], "msgType": "{}"}'.format(self.error.value, self.message_type)
