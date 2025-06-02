@@ -52,10 +52,10 @@ class WindowBounds:
     south_lat: float = 0
     west_lng: float = 0
 
-    def is_inside(self, lat, lng) -> bool:
+    def is_inside(self, lat: float, lng: float) -> bool:
         return (self.south_lat <= lat <= self.north_lat) and (self.west_lng <= lng <= self.east_lng)
 
-    def update(self, east_lng, north_lat, south_lat, west_lng) -> None:
+    def update(self, south_lat: float, north_lat: float, west_lng: float, east_lng: float) -> None:
         self.east_lng, self.north_lat, self.south_lat, self.west_lng = east_lng, north_lat, south_lat, west_lng
 
 

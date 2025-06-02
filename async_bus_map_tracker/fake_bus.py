@@ -11,8 +11,8 @@ from trio_websocket import open_websocket_url
 from async_bus_map_tracker.core import consts
 from async_bus_map_tracker.core.config import configure_application
 from async_bus_map_tracker.core.connections import relaunch_on_disconnect
-from async_bus_map_tracker.core.routes import generate_bus_id, load_routes
 from async_bus_map_tracker.core.models import Bus, MessageTypes
+from async_bus_map_tracker.core.routes import generate_bus_id, load_routes
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
@@ -36,22 +36,23 @@ async def run_bus(
     coordinates: tuple[float, float],
     refresh_timeout: int,
 ) -> None:
+    full_route = list(chain(coordinates, reversed(coordinates)))
+    route = cycle(islice(full_route, randint(0, len(full_route) - 1), None))
     async with send_channel:
         while True:
-            for coordinate in islice(cycle(chain(coordinates, reversed(coordinates))), randint(10, 100)):
-                lat, lng = coordinate
-                message = {
-                    'msgType': MessageTypes.BUSES.value,
-                    'buses': asdict(Bus(
-                        busId=generate_bus_id(bus_id, bus_index),
-                        lat=lat,
-                        lng=lng,
-                        route=bus_id,
-                    )),
-                }
-                await send_channel.send(json.dumps(message, ensure_ascii=True))
-                await trio.sleep(refresh_timeout)
-                logger.info(f'message send {message}')
+            lat, lng = next(route)
+            message = {
+                'msgType': MessageTypes.BUSES.value,
+                'buses': asdict(Bus(
+                    busId=generate_bus_id(bus_id, bus_index),
+                    lat=lat,
+                    lng=lng,
+                    route=bus_id,
+                )),
+            }
+            await send_channel.send(json.dumps(message, ensure_ascii=True))
+            await trio.sleep(refresh_timeout)
+            logger.info(f'message send {message}')
 
 
 async def main() -> None:

@@ -1,3 +1,5 @@
+from json import loads
+
 import pytest
 from trio_websocket import open_websocket_url
 
@@ -5,18 +7,19 @@ from async_bus_map_tracker.core.config import configure_application
 from async_bus_map_tracker.core.models import MessageErrors
 
 config_data = configure_application(is_test=True)
-server_host = f'{config_data.server_protocol}{config_data.server_host}'
+SERVER_HOST = f'{config_data.server_protocol}{config_data.server_host}'
+ERROR_MESSAGE_RETRY_AMOUNT = 5
 
 
 @pytest.fixture
 async def server_client():
-    async with open_websocket_url(f'{server_host}:{config_data.server_port}') as ws:
+    async with open_websocket_url(f'{SERVER_HOST}:{config_data.server_port}') as ws:
         yield ws
 
 
 @pytest.fixture
 async def browser_bus_client():
-    async with open_websocket_url(f'{server_host}:{config_data.browser_port}') as ws:
+    async with open_websocket_url(f'{SERVER_HOST}:{config_data.browser_port}') as ws:
         yield ws
 
 
@@ -38,6 +41,15 @@ async def test_server_client(server_client, payload, error):
     assert response == f'{{"errors": ["{error}"], "msgType": "Errors"}}'
 
 
+async def get_error_message(ws):
+    for _ in range(ERROR_MESSAGE_RETRY_AMOUNT):
+        response = await ws.get_message()
+        data = loads(response)
+        if data.get("msgType") == "Errors":
+            return response
+    raise AssertionError("No Errors message received")
+
+
 @pytest.mark.trio
 @pytest.mark.parametrize('payload, error', [
     ('{"msgType": "Buses", "buses": [}', MessageErrors.INVALID_JSON.value),
@@ -48,5 +60,5 @@ async def test_server_client(server_client, payload, error):
 ])
 async def test_browser_client(browser_bus_client, payload, error):
     await browser_bus_client.send_message(payload)
-    response = await browser_bus_client.get_message()
+    response = await get_error_message(browser_bus_client)
     assert response == f'{{"errors": ["{error}"], "msgType": "Errors"}}'

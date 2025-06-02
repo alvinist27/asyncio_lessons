@@ -8,11 +8,47 @@
 
 - Скачайте код
 - Откройте в браузере файл index.html
-
-
-## Установка системных библиотек
+- Запустите сервер server.py
 ```shell
-sudo apt-get install python-dev libxml2-dev libxslt-dev
+python server.py
+```
+- Запустите имитатор автобусов fake_bus.py
+```shell
+python fake_bus.py
+```
+
+### Настройка CLI
+### Аргументы командной строки fake_bus.py
+- `-pr` `--server_protocol` - протокол сервера
+- `-sh` `--server_host` - адрес сервера
+- `-sp` `--server_port` - порт сервера
+- `-rn` `--routes_number` — количество маршрутов
+- `-bpr` `--buses_per_route` — количество автобусов на каждом маршруте
+- `-ws_n` `--websockets_number` — количество открытых веб-сокетов
+- `-e_id` `--emulator_id` — префикс к busId на случай запуска нескольких экземпляров имитатора
+- `-rt` `--refresh_timeout` — задержка в обновлении координат сервера
+- `-v` `--logging` — настройка логирования
+
+### Аргументы командной строки server.py
+- `-pr` `--server_protocol` - протокол сервера
+- `-sh` `--server_host` - адрес сервера
+- `-bp` `--browser_port` - порт для имитатора автобусов
+- `-v` `--logging` — настройка логирования
+
+### Настройка переменных окружения
+Создайте файл .env в корне проекта. Пример представлен в .env.example:
+```
+SERVER_PROTOCOL='ws://'
+SERVER_HOST=127.0.0.1
+ROUTES_NUMBER=50
+BUSES_PER_ROUTE=2
+WEBSOCKETS_NUMBER=20
+PREFIX_EMULATOR_ID=''
+COORD_REFRESH_TIMEOUT=1
+LOGGING=''
+
+BUS_PORT=8001
+BROWSER_PORT=8080
 ```
 
 ## Настройки
@@ -53,6 +89,12 @@ sudo apt-get install python-dev libxml2-dev libxslt-dev
     "west_lng": 37.54440307617188
   }
 }
+```
+
+## Запуск тестов
+Для запуска тестов необходимо применить команду
+```shell
+pytest core/tests.py
 ```
 
 ## Используемые библиотеки
