@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 
-from async_bus_map_tracker.core.types import MessageErrors, MessageTypes, MessageValidationError
+from async_bus_map_tracker.core.models import MessageErrors, MessageTypes, MessageValidationError
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)

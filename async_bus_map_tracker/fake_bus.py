@@ -12,7 +12,7 @@ from async_bus_map_tracker.core import consts
 from async_bus_map_tracker.core.config import configure_application
 from async_bus_map_tracker.core.connections import relaunch_on_disconnect
 from async_bus_map_tracker.core.routes import generate_bus_id, load_routes
-from async_bus_map_tracker.core.types import Bus, MessageTypes
+from async_bus_map_tracker.core.models import Bus, MessageTypes
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)

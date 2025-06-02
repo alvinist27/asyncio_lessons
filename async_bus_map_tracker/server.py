@@ -8,7 +8,7 @@ from trio_websocket import ConnectionClosed, serve_websocket, WebSocketConnectio
 
 from async_bus_map_tracker.core import consts
 from async_bus_map_tracker.core.config import configure_application
-from async_bus_map_tracker.core.types import Bus, MessageTypes, MessageValidationError, WindowBounds
+from async_bus_map_tracker.core.models import Bus, MessageTypes, MessageValidationError, WindowBounds
 from async_bus_map_tracker.core.validators import JsonMessageValidator
 
 logger = logging.getLogger()
@@ -87,8 +87,6 @@ async def handle_bus_messages(request: WebSocketRequest) -> None:
     while True:
         try:
             message = await ws.get_message()
-            await ws.send_message(message)
-
             json_message = JsonMessageValidator(message=message, is_bounds=True).get_validated_data()
             if isinstance(json_message, MessageValidationError):
                 await ws.send_message(str(json_message))

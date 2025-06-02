@@ -3,12 +3,12 @@ import os
 
 from dotenv import load_dotenv
 
-from async_bus_map_tracker.core.types import ConfigData
+from async_bus_map_tracker.core.models import ConfigData
 
 load_dotenv()
 
 
-def configure_application() -> ConfigData:
+def configure_application(is_test: bool = False) -> ConfigData:
     parser = argparse.ArgumentParser()
     parser.add_argument('-pr', '--server_protocol', help='set server connection protocol')
     parser.add_argument('-sh', '--server_host', help='set server connection host')
@@ -20,7 +20,7 @@ def configure_application() -> ConfigData:
     parser.add_argument('-e_id', '--emulator_id', help='set emulator_id - prefix for busID')
     parser.add_argument('-rt', '--refresh_timeout', help='set refresh timeout for coordinates update')
     parser.add_argument('-v', '--logging', help='set logging settings')
-    parser_args = parser.parse_args()
+    parser_args = parser.parse_args() if not is_test else ConfigData()
     return ConfigData(
         server_protocol=parser_args.server_protocol or os.getenv('SERVER_PROTOCOL', ''),
         server_host=parser_args.server_host or os.getenv('SERVER_HOST', ''),

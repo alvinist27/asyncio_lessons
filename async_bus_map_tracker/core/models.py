@@ -25,16 +25,16 @@ class MessageErrors(Enum):
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class ConfigData:
-    server_protocol: str
-    server_host: str
-    server_port: int
-    browser_port: int
-    routes_number: int
-    buses_per_route: int
-    websockets_number: int
-    emulator_id: str
-    refresh_timeout: int
-    logging: str
+    server_protocol: str = ''
+    server_host: str = ''
+    server_port: int = 0
+    browser_port: int = 0
+    routes_number: int = 0
+    buses_per_route: int = 0
+    websockets_number: int = 0
+    emulator_id: str = ''
+    refresh_timeout: int = 0
+    logging: str = ''
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -65,4 +65,4 @@ class MessageValidationError:
     message_type: str = 'Errors'
 
     def __str__(self):
-        return '{"errors": [{}], "msgType": "{}"}'.format(self.error.value, self.message_type)
+        return f'{{"errors": ["{self.error.value}"], "msgType": "{self.message_type}"}}'
