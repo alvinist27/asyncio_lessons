@@ -1,5 +1,5 @@
 aiohttp==3.*
-aiodns==2.*
+aiodns==3.*
 async-timeout==5.0.*
 beautifulsoup4==4.*
 cchardet==2.*
